@@ -92,7 +92,7 @@ class Game:
             self.draw_grid()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    running = False
+                    self.game_state = 0
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_UP:
                         self.snake.direction = "up"
