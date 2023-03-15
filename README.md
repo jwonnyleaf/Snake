@@ -12,6 +12,7 @@ This is a Python implementation of the classic Snake game along with an AI agent
 - Torch
 - Numpy
 - Matplot
+- IPython
 
 
 ## Installation
