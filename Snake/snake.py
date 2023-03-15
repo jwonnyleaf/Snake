@@ -1,6 +1,7 @@
 import pygame
 import random
 import sys
+import consts as consts
 
 SCREEN_WIDTH = 640
 SCREEN_HEIGHT = 480
@@ -31,6 +32,7 @@ class Snake:
         self.direction = random.choice(["up", "down", "left", "right"])
                                        
     def draw(self, screen):
+        print(self.positions)
         for position in self.positions:
             snake_body = pygame.Rect(position, (BLOCK_SIZE, BLOCK_SIZE))
             pygame.draw.rect(screen, (0, 0, 255), snake_body)
@@ -38,14 +40,17 @@ class Snake:
         pygame.display.flip()
 
     def move(self):
+        cur_x, cur_y = self.positions[0]
         if self.direction == "up":
-            self.positions.insert(0, (self.positions[0][0], self.positions[0][1] - BLOCK_SIZE))
+            new = (cur_x, cur_y - consts.BLOCK_SIZE)
         elif self.direction == "down":
-            self.positions.insert(0, (self.positions[0][0], self.positions[0][1] + BLOCK_SIZE))
+            new = (cur_x, cur_y + consts.BLOCK_SIZE)
         elif self.direction == "left":
-            self.positions.insert(0, (self.positions[0][0] - BLOCK_SIZE, self.positions[0][1]))
+            new = (cur_x - consts.BLOCK_SIZE, cur_y)
         elif self.direction == "right":
-            self.positions.insert(0, (self.positions[0][0] + BLOCK_SIZE, self.positions[0][1]))
+            new = (cur_x + consts.BLOCK_SIZE, cur_y)
+
+        self.positions.insert(0, new)
 
         if len(self.positions) > self.length:
             self.positions.pop()
@@ -64,7 +69,6 @@ class Game:
 
         self.snake = Snake()
         self.food = Food()
-        self.food.draw(self.screen)
 
     def draw_grid(self):
         self.screen.fill((0, 0, 0))

@@ -1,23 +1,24 @@
 import pygame
 import random
 import sys
+import numpy as np
+import consts as consts
 
-SCREEN_WIDTH = 640
-SCREEN_HEIGHT = 480
-BLOCK_SIZE = 20
-TICK_RATE = 8
 
 class Food:
     def __init__(self):
-        self.x = random.randint(0, (SCREEN_WIDTH - BLOCK_SIZE) / BLOCK_SIZE) * BLOCK_SIZE
-        self.y = random.randint(0, (SCREEN_HEIGHT - BLOCK_SIZE) / BLOCK_SIZE) * BLOCK_SIZE
+        self.x = random.randint(
+            0, (consts.SCREEN_WIDTH - consts.BLOCK_SIZE) / consts.BLOCK_SIZE) * consts.BLOCK_SIZE
+        self.y = random.randint(
+            0, (consts.SCREEN_HEIGHT - consts.BLOCK_SIZE) / consts.BLOCK_SIZE) * consts.BLOCK_SIZE
         self.pos = (self.x, self.y)
-        
+
     def draw(self, screen):
-        food = pygame.Rect(self.pos, (BLOCK_SIZE, BLOCK_SIZE))
+        food = pygame.Rect(self.pos, (consts.BLOCK_SIZE, consts.BLOCK_SIZE))
         pygame.draw.rect(screen, (255, 0, 0), food)
 
         pygame.display.flip()
+
 
 class Snake:
     ''' Constructor
@@ -25,92 +26,112 @@ class Snake:
         positions: list of tuples containing x and y coordinates of snake
         direction: direction of snake
     '''
+
     def __init__(self):
         self.length = 1
-        self.positions = [((SCREEN_WIDTH / 2), (SCREEN_HEIGHT / 2))]
+        self.positions = [((consts.SCREEN_WIDTH / 2), (consts.SCREEN_HEIGHT / 2))]
         self.direction = random.choice(["up", "down", "left", "right"])
-                                       
+
     def draw(self, screen):
         for position in self.positions:
-            snake_body = pygame.Rect(position, (BLOCK_SIZE, BLOCK_SIZE))
+            snake_body = pygame.Rect(position, (consts.BLOCK_SIZE, consts.BLOCK_SIZE))
             pygame.draw.rect(screen, (0, 0, 255), snake_body)
 
         pygame.display.flip()
 
-    def move(self):
+    def move(self, action):
+        clock_wise = ["up", "right", "down", "left"]
+        idx = clock_wise.index(self.direction)
+
+        if np.array_equal(action, [1, 0, 0]):
+            new_dir = clock_wise[idx]
+        elif np.array_equal(action, [0, 1, 0]):
+            next_idx = (idx + 1) % 4
+            new_dir = clock_wise[next_idx]
+        else:
+            next_idx = (idx - 1) % 4
+            new_dir = clock_wise[next_idx]
+
+        self.direction = new_dir
+
+        # update positions of snake keeping the head in the same direction
+        cur_x, cur_y = self.positions[0]
         if self.direction == "up":
-            self.positions.insert(0, (self.positions[0][0], self.positions[0][1] - BLOCK_SIZE))
+            new = (cur_x, cur_y - consts.BLOCK_SIZE)
         elif self.direction == "down":
-            self.positions.insert(0, (self.positions[0][0], self.positions[0][1] + BLOCK_SIZE))
+            new = (cur_x, cur_y + consts.BLOCK_SIZE)
         elif self.direction == "left":
-            self.positions.insert(0, (self.positions[0][0] - BLOCK_SIZE, self.positions[0][1]))
+            new = (cur_x - consts.BLOCK_SIZE, cur_y)
         elif self.direction == "right":
-            self.positions.insert(0, (self.positions[0][0] + BLOCK_SIZE, self.positions[0][1]))
+            new = (cur_x + consts.BLOCK_SIZE, cur_y)
+
+        self.positions.insert(0, new)
 
         if len(self.positions) > self.length:
             self.positions.pop()
 
-class Game:
-    def __init__(self, width=SCREEN_WIDTH, height=SCREEN_HEIGHT):
+
+class GameAI:
+    def __init__(self, width=consts.SCREEN_WIDTH, height=consts.SCREEN_HEIGHT):
         self.width = width
         self.height = height
-        self.game_state = 1
-        self.score = 0
+        self.game_done = False
 
         pygame.init()
         self.screen = pygame.display.set_mode((self.width, self.height))
         pygame.display.set_caption("Snake")
         self.clock = pygame.time.Clock()
-
-        self.snake = Snake()
-        self.food = Food()
-        self.food.draw(self.screen)
+        self.reset()
 
     def draw_grid(self):
         self.screen.fill((0, 0, 0))
 
-    def check_collision(self):
-        if self.snake.positions[0][0] > SCREEN_WIDTH or self.snake.positions[0][0] < 0:
-            self.reset()
-        if self.snake.positions[0][1] > SCREEN_HEIGHT or self.snake.positions[0][1] < 0:
-            self.reset()
-        if self.snake.positions[0] in self.snake.positions[1:]:
-            self.reset()
+    def check_collision(self, pt=None):
+        if pt is None:
+            pt = self.snake.positions[0]
 
+        reset = False
+        if pt[0] > consts.SCREEN_WIDTH or pt[0] < 0:
+            return True
+        if pt[1] > consts.SCREEN_HEIGHT or pt[1] < 0:
+            return True
+        if pt in self.snake.positions[1:]:
+            return True
+        
         if self.snake.positions[0] == self.food.pos:
             self.snake.length += 1
             self.score += 1
+            self.reward = 10
             self.food = Food()
 
+        return False
+            
+
     def reset(self):
-        self.game_state = 0
+        self.snake = Snake()
+        self.food = Food()
+        self.frame_iterations = 0
+        self.score = 0
 
-    ''' Main Game Loop'''
-    def run(self):
-        while self.game_state:
-            self.clock.tick(TICK_RATE)
-            self.draw_grid()
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_UP:
-                        self.snake.direction = "up"
-                    if event.key == pygame.K_DOWN:
-                        self.snake.direction = "down"
-                    if event.key == pygame.K_LEFT:
-                        self.snake.direction = "left"
-                    if event.key == pygame.K_RIGHT:
-                        self.snake.direction = "right"
+    def play_step(self, action):
+        self.frame_iterations += 1
 
-            self.snake.move()
-            self.snake.draw(self.screen)
-            self.food.draw(self.screen)
-            self.check_collision()
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
 
-        print("SCORE: ", self.score)
-        pygame.quit()
+        self.snake.move(action)
+        self.reward = 0
+        self.game_done = False
 
-if __name__ == "__main__":
-    game = Game()
-    game.run()
+        if self.check_collision() or self.frame_iterations > 100 * len(self.snake.positions):
+            self.game_done = True
+            self.reward = -10
+            return self.reward, self.game_done, self.score
+
+        self.draw_grid()
+        self.snake.draw(self.screen)
+        self.food.draw(self.screen)
+        self.clock.tick(consts.TICK_RATE)
+
+        return self.reward, self.game_done, self.score
